@@ -35,7 +35,7 @@ static DoubleOption  opt_var_decay         (_cat, "var-decay",   "The variable a
 static DoubleOption  opt_clause_decay      (_cat, "cla-decay",   "The clause activity decay factor",              0.999,    DoubleRange(0, false, 1, false));
 static DoubleOption  opt_random_var_freq   (_cat, "rnd-freq",    "The frequency with which the decision heuristic tries to choose a random variable", 0, DoubleRange(0, true, 1, true));
 static DoubleOption  opt_random_seed       (_cat, "rnd-seed",    "Used by the random variable selection",         91648253, DoubleRange(0, false, HUGE_VAL, false));
-static IntOption     opt_ccmin_mode        (_cat, "ccmin-mode",  "Controls conflict clause minimization (0=none, 1=basic, 2=deep)", 2, IntRange(0, 2));
+static IntOption     opt_ccmin_mode        (_cat, "ccmin-mode",  "Controls conflict clause minimization (0=none, 1=basic, 2=deep)", 0, IntRange(0, 2));
 static IntOption     opt_phase_saving      (_cat, "phase-saving", "Controls the level of phase saving (0=none, 1=limited, 2=full)", 2, IntRange(0, 2));
 static BoolOption    opt_rnd_init_act      (_cat, "rnd-init",    "Randomize the initial activity", false);
 static BoolOption    opt_luby_restart      (_cat, "luby",        "Use the Luby restart sequence", true);
@@ -162,6 +162,12 @@ bool Solver::addClause_(vec<Lit>& ps)
 void Solver::attachClause(CRef cr) {
     const Clause& c = ca[cr];
     assert(c.size() > 1);
+    if (output != NULL && cr != CRef_Undef) {
+      fprintf(output, "%i: ", cr);
+      for (int i = 0; i < c.size(); i++)
+        fprintf(output, "%i ", (var(c[i]) + 1) * (-2 * sign(c[i]) + 1));
+      fprintf(output, "0\n");
+    }
     watches[~c[0]].push(Watcher(cr, c[1]));
     watches[~c[1]].push(Watcher(cr, c[0]));
     if (c.learnt()) learnts_literals += c.size();
@@ -187,6 +193,10 @@ void Solver::detachClause(CRef cr, bool strict) {
 
 void Solver::removeClause(CRef cr) {
     Clause& c = ca[cr];
+
+    if (output != NULL)
+      fprintf(output, "d %i\n", cr);
+
     detachClause(cr);
     // Don't leave pointers to free'd memory!
     if (locked(c)) vardata[var(c[0])].reason = CRef_Undef;
@@ -205,6 +215,8 @@ bool Solver::satisfied(const Clause& c) const {
 // Revert to the state at given level (keeping all assignment at 'level' but not beyond).
 //
 void Solver::cancelUntil(int level) {
+    if (output != NULL)
+      fprintf(output, "%i\n", level);
     if (decisionLevel() > level){
         for (int c = trail.size()-1; c >= trail_lim[level]; c--){
             Var      x  = var(trail[c]);
@@ -240,7 +252,11 @@ Lit Solver::pickBranchLit()
         }else
             next = order_heap.removeMin();
 
-    return next == var_Undef ? lit_Undef : mkLit(next, rnd_pol ? drand(random_seed) < 0.5 : polarity[next]);
+    bool pol = rnd_pol ? drand(random_seed) < 0.5 : polarity[next];
+    if (output != NULL && next != var_Undef){
+      fprintf(output, "b %i\n", (next + 1) * (-2 * pol + 1));
+    }
+    return next == var_Undef ? lit_Undef : mkLit(next, pol);
 }
 
 
@@ -489,13 +505,20 @@ CRef Solver::propagate()
             // Did not find watch -- clause is unit under assignment:
             *j++ = w;
             if (value(first) == l_False){
+                if (output != NULL)
+                    fprintf(output, "k %i ", cr);
                 confl = cr;
                 qhead = trail.size();
                 // Copy the remaining watches:
                 while (i < end)
                     *j++ = *i++;
-            }else
+            }else{
+                if (output != NULL)
+                    fprintf(output, "i %i %i\n",
+                            (var(first) + 1) * (-2 * sign(first) + 1),
+                            cr);
                 uncheckedEnqueue(first, cr);
+            }
 
         NextClause:;
         }
@@ -631,7 +654,12 @@ lbool Solver::search(int nof_conflicts)
             cancelUntil(backtrack_level);
 
             if (learnt_clause.size() == 1){
-                uncheckedEnqueue(learnt_clause[0]);
+                Lit learnt_lit = learnt_clause[0];
+                uncheckedEnqueue(learnt_lit);
+                if (output != NULL) {
+                  fprintf(output, ": %i 0\n" ,
+                          (var(learnt_lit) + 1) * (-2 * sign(learnt_lit) + 1) );
+                }
             }else{
                 CRef cr = ca.alloc(learnt_clause, true);
                 learnts.push(cr);
