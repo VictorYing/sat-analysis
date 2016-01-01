@@ -32,20 +32,22 @@ class Branch(Assignment, Event):
 
 class Implication(Assignment):
     '''Implied assignment derived from unit propgation.'''
-    def __init__(self, lit, antecedent, assignments):
+    def __init__(self, lit, antecedent=None, assignments=None):
         super(Implication, self).__init__(lit)
         self.antecedent = antecedent
         self.needed_assignments = []
-        for lit in antecedent:
-            if abs(lit) != self.get_var():
-                assn = assignments[abs(lit)]
-                assert (lit > 0) != assn.get_val()
-                self.needed_assignments.append(assn)
+        if antecedent:
+            for lit in antecedent:
+                if abs(lit) != self.get_var():
+                    assn = assignments[abs(lit)]
+                    assert (lit > 0) != assn.get_val()
+                    self.needed_assignments.append(assn)
     def needed(self, debug):
         if self.is_needed:
             return
         super(Implication, self).needed(debug)
-        self.antecedent.needed(debug)
+        if self.antecedent:
+            self.antecedent.needed(debug)
         for assn in self.needed_assignments:
             assn.needed(debug)
 
@@ -156,23 +158,35 @@ class TraceAnalyzer(object):
 
         return False
 
+    def _analyze_implication(self, line):
+        i, lit, ante = line.split(' ')
+        assert 'i' == i
+        ante = self.clauses[int(ante)]
+        assn = Implication(int(lit), ante, self.assignments)
+        self._add_assignment(assn)
+
     def analyze(self, in_file, out_file):
         event_list = []
 
         line = in_file.readline()
-        while ':' in line:
-            cref, lits = line.split(': ')
-            lits = [int(l) for l in lits.split(' ')[:-1]]
-            self._add_clause(OriginalClause(lits), cref)
+        while ':' in line or 'i' == line[0]:
+            if ':' in line:
+                cref, lits = line.split(': ')
+                lits = [int(l) for l in lits.split(' ')[:-1]]
+                self._add_clause(OriginalClause(lits), cref)
+                if 0 == len(lits):
+                    return
+                elif 1 == len(lits):
+                    self._add_assignment(Implication(lits[0]))
+            elif 'i' == line[0]:
+                self._analyze_implication(line)
+            else:
+                assert False
             line = in_file.readline()
 
         while line:
             if 'i' == line[0]:
-                # BCP discovered implication
-                _, lit, ante = line.split(' ')
-                ante = self.clauses[int(ante)]
-                assn = Implication(int(lit), ante, self.assignments)
-                self._add_assignment(assn)
+                self._analyze_implication(line)
             elif 'b' == line[0]:
                 # Picked branch
                 self._new_decision_level()

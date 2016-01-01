@@ -144,9 +144,14 @@ bool Solver::addClause_(vec<Lit>& ps)
             ps[j++] = p = ps[i];
     ps.shrink(i - j);
 
-    if (ps.size() == 0)
+    if (ps.size() == 0){
+        if (output != NULL)
+            fprintf(output, ": 0\n");
         return ok = false;
-    else if (ps.size() == 1){
+    }else if (ps.size() == 1){
+        if (output != NULL)
+            fprintf(output, ": %i 0\n",
+                    (var(ps[0]) + 1) * (-2 * sign(ps[0]) + 1) );
         uncheckedEnqueue(ps[0]);
         return ok = (propagate() == CRef_Undef);
     }else{

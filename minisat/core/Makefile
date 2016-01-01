@@ -3,10 +3,23 @@ DEPDIR    = mtl utils
 
 include $(MROOT)/mtl/template.mk
 
-run-simple: rs
-	-./minisat_static -verb=0 ../../bench/simple/three.cnf three.trace
-	-./minisat_static -verb=0 ../../bench/simple/two.cnf two.trace
+cleantrace:
+	-rm one.trace two.trace three.trace
+cleandecisions:
+	-rm one.decisions two.decisions three.decisions
+cleanoutput: cleantrace cleandecisions
+clean: cleanoutput
 
-analyze-simple: run-simple
-	./analyze_trace.py three.trace three.decisions
-	./analyze_trace.py two.trace two.decisions
+%.trace: rs
+	-./minisat_static -verb=0 $(word 2,$^) $@
+
+%.decisions: %.trace
+	./analyze_trace.py $< $@
+
+one.trace: ../../bench/simple/one.cnf
+two.trace: ../../bench/simple/two.cnf
+three.trace: ../../bench/simple/three.cnf
+
+run-simple: one.trace two.trace three.trace
+
+analyze-simple: one.decisions two.decisions three.decisions
