@@ -30,6 +30,6 @@
 
 # Execution trace and analysis output
 *.trace
-*.branch
+*.decisions
 # Tags
 tags

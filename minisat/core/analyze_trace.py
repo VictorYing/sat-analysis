@@ -2,6 +2,11 @@
 
 import argparse, sys
 
+class Event(object):
+    '''Base class for heuristic decisions.'''
+    def get_needed(self):
+        raise NotImplementedError
+
 class Assignment(object):
     '''Base class for variable assignments'''
     def __init__(self, lit):
@@ -18,11 +23,12 @@ class Assignment(object):
         if debug:
             print 'assignment %i is needed' % self.lit
 
-class Branch(Assignment):
+class Branch(Assignment, Event):
     '''Assignment picked by decision heuristic.'''
-    def foutput(self, out_file):
-        if self.is_needed:
-            out_file.write('%i\n' % self.lit)
+    def get_needed(self):
+        return self.is_needed
+    def __str__(self):
+        return "%i\n" % self.lit
 
 class Implication(Assignment):
     '''Implied assignment derived from unit propgation.'''
@@ -82,6 +88,13 @@ class LearnedClause(Clause):
         for assn in self.needed_assignments:
             assn.needed(debug)
 
+class Reset(Event):
+    '''A solver reset'''
+    def get_needed(self):
+        return True
+    def __str__(self):
+        return 'r\n'
+
 class TraceAnalyzer(object):
     def __init__(self, debug):
         self.clauses = {}
@@ -107,10 +120,14 @@ class TraceAnalyzer(object):
             assert cref not in self.clauses
             self.clauses[int(cref)] = clause
 
+    def _decision_level(self):
+        return len(self.trail_lim)
+
     def _new_decision_level(self):
         self.trail_lim.append(len(self.trail))
 
     def _backtrack_to(self, level):
+        assert level < self._decision_level()
         for i in xrange(self.trail_lim[level], len(self.trail)):
             del self.assignments[self.trail[i].get_var()]
         self.trail = self.trail[:self.trail_lim[level]]
@@ -119,19 +136,19 @@ class TraceAnalyzer(object):
     def _analyze_conflict(self, in_file, cref, backtrack_level):
         '''Return True if empty clause has been learned.'''
         conflicting_clause = self.clauses[int(cref)]
-        line = in_file.readline()
+        backtrack_level = int(backtrack_level)
 
-        if '0\n' == line:
+        if -1 == backtrack_level:
             clause = LearnedClause([], conflicting_clause, self.assignments)
             clause.needed(self.debug)
             return True
 
-        cref, lits = line.split(': ')
+        cref, lits = in_file.readline().split(': ')
         lits = [int(l) for l in lits.split(' ')[:-1]]
         clause = LearnedClause(lits, conflicting_clause, self.assignments)
         self._add_clause(clause, cref)
 
-        self._backtrack_to(int(backtrack_level))
+        self._backtrack_to(backtrack_level)
 
         # Learned clause is asserting
         assn = Implication(clause.get_lits()[0], clause, self.assignments)
@@ -140,7 +157,7 @@ class TraceAnalyzer(object):
         return False
 
     def analyze(self, in_file, out_file):
-        branch_list = []
+        event_list = []
 
         line = in_file.readline()
         while ':' in line:
@@ -161,7 +178,7 @@ class TraceAnalyzer(object):
                 self._new_decision_level()
                 branch = Branch(int(line.split(' ')[-1]))
                 self._add_assignment(branch)
-                branch_list.append(branch)
+                event_list.append(branch)
             elif 'k' == line[0]:
                 # Encountered conflict
                 _, cref, backtrack_level = line.split(' ')
@@ -170,6 +187,10 @@ class TraceAnalyzer(object):
             elif 'd' == line[0]:
                 cref = int(line.split(' ')[-1])
                 del self.clauses[cref]
+            elif 'r' == line[0]:
+                if self._decision_level() > 0:
+                    self._backtrack_to(0)
+                    event_list.append(Reset())
             else:
                 assert False
 
@@ -178,15 +199,16 @@ class TraceAnalyzer(object):
 
             line = in_file.readline()
 
-        for branch in branch_list:
-            branch.foutput(out_file)
+        for event in event_list:
+            if event.get_needed():
+                out_file.write(str(event))
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('input_file',
                         help='trace from solver')
     parser.add_argument('output_file',
-                        help='necessary branchess')
+                        help='necessary decisions')
     parser.add_argument('--debug', action='store_true',
                         help='print information during analysis')
     args = parser.parse_args()

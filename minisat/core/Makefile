@@ -8,5 +8,5 @@ run-simple: rs
 	-./minisat_static -verb=0 ../../bench/simple/two.cnf two.trace
 
 analyze-simple: run-simple
-	./analyze_trace.py three.trace three.branch
-	./analyze_trace.py two.trace two.branch
+	./analyze_trace.py three.trace three.decisions
+	./analyze_trace.py two.trace two.decisions

@@ -692,6 +692,8 @@ lbool Solver::search(int nof_conflicts)
             if (nof_conflicts >= 0 && conflictC >= nof_conflicts || !withinBudget()){
                 // Reached bound on number of conflicts:
                 progress_estimate = progressEstimate();
+                if (output != NULL)
+                    fprintf(output, "r\n");
                 cancelUntil(0);
                 return l_Undef; }
 
