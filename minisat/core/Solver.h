@@ -105,7 +105,7 @@ public:
     void    checkGarbage(double gf);
     void    checkGarbage();
 
-
+    FILE*               decision_oracle;
     FILE*               output;
 
     // Extra results: (read-only member variable)

@@ -84,6 +84,7 @@ int main(int argc, char** argv)
         IntOption    verb   ("MAIN", "verb",   "Verbosity level (0=silent, 1=some, 2=more).", 1, IntRange(0, 2));
         IntOption    cpu_lim("MAIN", "cpu-lim","Limit on CPU time allowed in seconds.\n", INT32_MAX, IntRange(0, INT32_MAX));
         IntOption    mem_lim("MAIN", "mem-lim","Limit on memory usage in megabytes.\n", INT32_MAX, IntRange(0, INT32_MAX));
+        StringOption oracle_filename   ("MAIN", "decisions",   "Filename for decisions.\n", NULL);
         
         parseOptions(argc, argv, true);
 
@@ -159,6 +160,8 @@ int main(int argc, char** argv)
             exit(20);
         }
         
+        S.decision_oracle = (oracle_filename != NULL) ? fopen(oracle_filename, "rb") : NULL;
+
         vec<Lit> dummy;
         lbool ret = S.solveLimited(dummy);
         if (S.verbosity > 0){

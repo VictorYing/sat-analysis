@@ -241,6 +241,23 @@ Lit Solver::pickBranchLit()
 {
     Var next = var_Undef;
 
+    if (decision_oracle != NULL) {
+        int lit;
+        char c = '\0';
+        while (fscanf(decision_oracle, "%d", &lit) == 0){
+            int x = fscanf(decision_oracle, " %c", &c);
+            assert(x == 1);
+            if (c == 'r'){
+                if (output != NULL)
+                    fprintf(output, "r\n");
+                cancelUntil(0);
+            }
+        }
+        if (output != NULL)
+            fprintf(output, "b %i\n", lit);
+        return mkLit(abs(lit)-1, lit < 0);
+    }
+
     // Random decision:
     if (drand(random_seed) < random_var_freq && !order_heap.empty()){
         next = order_heap[irand(random_seed,order_heap.size())];
@@ -697,10 +714,12 @@ lbool Solver::search(int nof_conflicts)
             if (nof_conflicts >= 0 && conflictC >= nof_conflicts || !withinBudget()){
                 // Reached bound on number of conflicts:
                 progress_estimate = progressEstimate();
-                if (output != NULL)
-                    fprintf(output, "r\n");
-                cancelUntil(0);
-                return l_Undef; }
+                if (decision_oracle == NULL){
+                    if (output != NULL)
+                        fprintf(output, "r\n");
+                    cancelUntil(0);
+                    return l_Undef;
+            } }
 
             // Simplify the set of problem clauses:
             if (decisionLevel() == 0 && !simplify())
