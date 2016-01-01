@@ -215,8 +215,6 @@ bool Solver::satisfied(const Clause& c) const {
 // Revert to the state at given level (keeping all assignment at 'level' but not beyond).
 //
 void Solver::cancelUntil(int level) {
-    if (output != NULL)
-      fprintf(output, "%i\n", level);
     if (decisionLevel() > level){
         for (int c = trail.size()-1; c >= trail_lim[level]; c--){
             Var      x  = var(trail[c]);
@@ -505,8 +503,6 @@ CRef Solver::propagate()
             // Did not find watch -- clause is unit under assignment:
             *j++ = w;
             if (value(first) == l_False){
-                if (output != NULL)
-                    fprintf(output, "k %i ", cr);
                 confl = cr;
                 qhead = trail.size();
                 // Copy the remaining watches:
@@ -646,11 +642,19 @@ lbool Solver::search(int nof_conflicts)
         CRef confl = propagate();
         if (confl != CRef_Undef){
             // CONFLICT
+            if (output != NULL)
+                fprintf(output, "k %i ", confl);
             conflicts++; conflictC++;
-            if (decisionLevel() == 0) return l_False;
+            if (decisionLevel() == 0){
+                if (output != NULL)
+                    fprintf(output, "-1\n");
+                return l_False;
+            }
 
             learnt_clause.clear();
             analyze(confl, learnt_clause, backtrack_level);
+            if (output != NULL)
+                fprintf(output, "%i\n", backtrack_level);
             cancelUntil(backtrack_level);
 
             if (learnt_clause.size() == 1){
