@@ -236,6 +236,43 @@ void Solver::cancelUntil(int level) {
 //=================================================================================================
 // Major methods:
 
+void Solver::findAndDeleteClause(vec<Lit>& c){
+    watches.cleanAll();
+    int i, j, k;
+    for (i = 0; i < c.size()-1; i++){
+        vec<Watcher>& ws = watches[~c[i]];
+        for (Watcher *w = (Watcher*)ws, *end = w + ws.size();  w != end; w++){
+            CRef cr = w->cref;
+            Clause& clause= ca[cr];
+
+            // Check whether clause contained in c
+            for (j = 0; j < clause.size(); j++){
+                for (k = 0; k < c.size(); k++){
+                    if (clause[j] == c[k])
+                        break;
+                }
+                if (k == c.size())
+                    goto NextClause;
+            }
+
+            // Check whether c contained in clause
+            for (j = 0; j < c.size(); j++){
+                for (k = 0; k < clause.size(); k++){
+                    if (c[j] == clause[k])
+                        break;
+                }
+                if (k == clause.size())
+                    goto NextClause;
+            }
+
+            removeClause(cr);
+            return;
+
+            NextClause:;
+        }
+    }
+    assert(0);
+}
 
 Lit Solver::pickBranchLit()
 {
@@ -244,6 +281,7 @@ Lit Solver::pickBranchLit()
     if (decision_oracle != NULL) {
         int lit;
         char c = '\0';
+        vec<Lit> clause;
         while (fscanf(decision_oracle, "%d", &lit) == 0){
             int x = fscanf(decision_oracle, " %c", &c);
             assert(x == 1);
@@ -251,7 +289,14 @@ Lit Solver::pickBranchLit()
                 if (output != NULL)
                     fprintf(output, "r\n");
                 cancelUntil(0);
-            }
+            }else if (c == 'd'){
+                clause.clear();
+                while (fscanf(decision_oracle, "%d", &lit) == 1 &&
+                       lit != 0)
+                    clause.push(mkLit(abs(lit)-1, lit<0));
+                findAndDeleteClause(clause);
+            }else
+                assert(false);
         }
         if (output != NULL)
             fprintf(output, "b %i\n", lit);
@@ -721,13 +766,15 @@ lbool Solver::search(int nof_conflicts)
                     return l_Undef;
             } }
 
-            // Simplify the set of problem clauses:
-            if (decisionLevel() == 0 && !simplify())
-                return l_False;
+            if (decision_oracle == NULL){
+                // Simplify the set of problem clauses:
+                if (decisionLevel() == 0 && !simplify())
+                    return l_False;
 
-            if (learnts.size()-nAssigns() >= max_learnts)
-                // Reduce the set of learnt clauses:
-                reduceDB();
+                if (learnts.size()-nAssigns() >= max_learnts)
+                    // Reduce the set of learnt clauses:
+                    reduceDB();
+            }
 
             Lit next = lit_Undef;
             while (decisionLevel() < assumptions.size()){
@@ -957,13 +1004,21 @@ void Solver::relocAll(ClauseAllocator& to)
 
     // All learnt:
     //
-    for (int i = 0; i < learnts.size(); i++)
+    for (int i = 0; i < learnts.size(); i++){
+        CRef old_cr = learnts[i];
         ca.reloc(learnts[i], to);
+        if (output != NULL && learnts[i] != old_cr)
+            fprintf(output, "m %i %i\n", old_cr, learnts[i]);
+    }
 
     // All original:
     //
-    for (int i = 0; i < clauses.size(); i++)
+    for (int i = 0; i < clauses.size(); i++){
+        CRef old_cr = clauses[i];
         ca.reloc(clauses[i], to);
+        if (output != NULL && clauses[i] != old_cr)
+            fprintf(output, "m %i %i\n", old_cr, clauses[i]);
+    }
 }
 
 

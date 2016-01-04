@@ -9,6 +9,8 @@ class Event(object):
     '''Base class for heuristic decisions.'''
     def get_needed(self):
         raise NotImplementedError
+    def __str__(self):
+        raise NotImplementedError
 
 class Assignment(object):
     '''Base class for variable assignments'''
@@ -107,6 +109,15 @@ class Reset(Event):
     def __str__(self):
         return 'r\n'
 
+class Deletion(Event):
+    '''The deletion of a clause.'''
+    def __init__(self, lits):
+        self.lits = lits
+    def get_needed(self):
+        return True
+    def __str__(self):
+        return 'd ' + ' '.join(str(lit) for lit in self.lits) + ' 0\n'
+
 class TraceAnalyzer(object):
     def __init__(self, debug):
         self.clauses = {}
@@ -122,7 +133,9 @@ class TraceAnalyzer(object):
         return ret
 
     def _add_assignment(self, assn):
-        assert assn.get_var() not in self.assignments
+        if assn.get_var() in self.assignments:
+            print 'Variable %i already assigned!' % assn.get_var()
+            assert False
         self.assignments[assn.get_var()] = assn
         self.trail.append(assn)
 
@@ -196,7 +209,11 @@ class TraceAnalyzer(object):
                 assert False
             line = in_file.readline()
 
+        while 'd' in line:
+            line = in_file.readline()
+
         learned_clauses = 0
+        no_new_line = False
         while line:
             if 'i' == line[0]:
                 self._analyze_implication(line)
@@ -214,18 +231,32 @@ class TraceAnalyzer(object):
                     break
             elif 'd' == line[0]:
                 cref = int(line.split(' ')[-1])
+                lits = self.clauses[cref].get_lits()
                 del self.clauses[cref]
+                event_list.append(Deletion(lits))
             elif 'r' == line[0]:
                 if self._decision_level() > 0:
                     self._backtrack_to(0)
                     event_list.append(Reset())
+            elif 'm' == line[0]:
+                new_clauses = {}
+                while 'm' == line[0]:
+                    _, old_cref, new_cref = line.split(' ')
+                    new_clauses[int(new_cref)] = self.clauses[int(old_cref)]
+                    line = in_file.readline()
+                self.clauses = new_clauses
+                no_new_line = True
             else:
+                print line
                 assert False
 
             if self.debug:
                 print self.get_assignments_lits()
 
-            line = in_file.readline()
+            if no_new_line:
+                no_new_line = False
+            else:
+                line = in_file.readline()
 
         for event in event_list:
             if event.get_needed():
