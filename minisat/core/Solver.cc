@@ -527,11 +527,17 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
 |    Post-conditions:
 |      * the propagation queue is empty, even if there was a conflict.
 |________________________________________________________________________________________________@*/
+struct Imp {
+    Lit p; CRef reason;
+    bool operator < (Imp q) const {return p < q.p;}
+};
 CRef Solver::propagate()
 {
     CRef    confl     = CRef_Undef;
     int     num_props = 0;
     watches.cleanAll();
+    vec<Imp> implications;
+    implications.clear();
 
     while (qhead < trail.size()){
         Lit            p   = trail[qhead++];     // 'p' is enqueued fact to propagate.
@@ -570,22 +576,43 @@ CRef Solver::propagate()
             // Did not find watch -- clause is unit under assignment:
             *j++ = w;
             if (value(first) == l_False){
-                confl = cr;
+                if (confl == CRef_Undef || confl < cr)
+                    confl = cr;
                 qhead = trail.size();
                 // Copy the remaining watches:
                 while (i < end)
                     *j++ = *i++;
             }else{
-                if (output != NULL)
-                    fprintf(output, "i %i %i\n",
-                            (var(first) + 1) * (-2 * sign(first) + 1),
-                            cr);
-                uncheckedEnqueue(first, cr);
+                Imp asdf = {first, cr};
+                implications.push(asdf);
             }
 
         NextClause:;
         }
         ws.shrink(i - j);
+
+        if (implications.size() != 0){
+        sort(implications);
+        Imp *prev = (Imp *)implications;
+        for (Imp *i = prev+1, *end = prev+implications.size(); i < end; i++){
+            int v = var(i->p);
+            if (var(prev->p) != v){
+                if (output != NULL)
+                    fprintf(output, "i %i %i\n",
+                            (var(prev->p) + 1) * (-2 * sign(prev->p) + 1),
+                            prev->reason);
+                uncheckedEnqueue(prev->p, prev->reason);
+                prev = i;
+            }else if (i->reason > prev->reason){
+                prev = i;
+            }
+        }
+        fprintf(output, "i %i %i\n",
+                (var(prev->p) + 1) * (-2 * sign(prev->p) + 1),
+                prev->reason);
+        uncheckedEnqueue(prev->p, prev->reason);
+        implications.clear();
+        }
     }
     propagations += num_props;
     simpDB_props -= num_props;
