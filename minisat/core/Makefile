@@ -9,14 +9,14 @@ cleanoutput:
 
 clean: cleanoutput
 
-%.trace: rs
-	-./minisat_static -verb=0 $(word 2,$^) $@
+%.trace: d
+	-./minisat_debug -verb=0 $(word 2,$^) $@
 
 %.decisions: %.trace
 	./analyze_trace.py $< $@
 
 %-oracle.trace: %.decisions
-	-./minisat_static -verb=0 -decisions=$^ $@
+	-./minisat_debug -verb=0 -decisions=$^ $@
 
 %-oracle-diff: %.trace %-oracle.trace
 	-diff $^
