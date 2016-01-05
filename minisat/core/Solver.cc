@@ -510,10 +510,20 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
 void Solver::uncheckedEnqueue(Lit p, CRef from)
 {
     assert(value(p) == l_Undef);
+    if (from != CRef_Undef){
+        Clause& c = ca[from];
+        assert(p == c[0]); }
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
     trail.push_(p);
-}
+    if (output != NULL && from != CRef_Undef){
+        //Clause& c = ca[from];
+        fprintf(output, "i %i %i\n",
+                (var(p) + 1) * (-2 * sign(p) + 1),
+                from
+               //, (var(c[1]) + 1) * (-2 * sign(c[1])+1)
+               );
+} }
 
 
 /*_________________________________________________________________________________________________
@@ -578,10 +588,6 @@ CRef Solver::propagate()
             if (value(first) == l_False){
                 if (confl == CRef_Undef || confl < cr)
                     confl = cr;
-                qhead = trail.size();
-                // Copy the remaining watches:
-                while (i < end)
-                    *j++ = *i++;
             }else{
                 Imp asdf = {first, cr};
                 implications.push(asdf);
@@ -590,28 +596,23 @@ CRef Solver::propagate()
         NextClause:;
         }
         ws.shrink(i - j);
-
-        if (implications.size() != 0){
-        sort(implications);
-        Imp *prev = (Imp *)implications;
-        for (Imp *i = prev+1, *end = prev+implications.size(); i < end; i++){
-            int v = var(i->p);
-            if (var(prev->p) != v){
-                if (output != NULL)
-                    fprintf(output, "i %i %i\n",
-                            (var(prev->p) + 1) * (-2 * sign(prev->p) + 1),
-                            prev->reason);
-                uncheckedEnqueue(prev->p, prev->reason);
-                prev = i;
-            }else if (i->reason > prev->reason){
-                prev = i;
+        if (confl != CRef_Undef){
+            qhead = trail.size();
+            implications.clear();
+        }else if (implications.size() != 0){
+            sort(implications);
+            Imp *prev = (Imp *)implications;
+            for (Imp *i = prev+1, *end = prev+implications.size(); i < end; i++){
+                int v = var(i->p);
+                if (var(prev->p) != v){
+                    uncheckedEnqueue(prev->p, prev->reason);
+                    prev = i;
+                }else if (i->reason > prev->reason){
+                    prev = i;
+                }
             }
-        }
-        fprintf(output, "i %i %i\n",
-                (var(prev->p) + 1) * (-2 * sign(prev->p) + 1),
-                prev->reason);
-        uncheckedEnqueue(prev->p, prev->reason);
-        implications.clear();
+            uncheckedEnqueue(prev->p, prev->reason);
+            implications.clear();
         }
     }
     propagations += num_props;

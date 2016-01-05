@@ -175,9 +175,10 @@ class TraceAnalyzer(object):
 
         self._backtrack_to(backtrack_level)
 
-        # Learned clause is asserting
-        assn = Implication(clause.get_lits()[0], clause, self.assignments)
-        self._add_assignment(assn)
+        if len(lits) == 1:
+            # Learned clause will not be added to database
+            assn = Implication(lits[0], clause, self.assignments)
+            self._add_assignment(assn)
 
         return False
 
