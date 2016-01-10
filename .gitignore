@@ -31,5 +31,8 @@
 # Execution trace and analysis output
 *.trace
 *.decisions
+*.log
+*.analysis
+
 # Tags
 tags

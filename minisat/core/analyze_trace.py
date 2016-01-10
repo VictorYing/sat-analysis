@@ -210,19 +210,28 @@ class TraceAnalyzer(object):
             line = in_file.readline()
 
         while 'd' in line:
+            cref = int(line.split(' ')[-1])
+            del self.clauses[cref]
             line = in_file.readline()
 
         learned_clauses = 0
         no_new_line = False
+        last_branch = None
+        num_implications = 0
         while line:
             if 'i' == line[0]:
                 self._analyze_implication(line)
+                num_implications += 1
             elif 'b' == line[0]:
+                if last_branch is not None:
+                    last_branch.implications = num_implications
+                    num_implications = 0
                 # Picked branch
                 self._new_decision_level()
                 branch = Branch(int(line.split(' ')[-1]))
                 self._add_assignment(branch)
                 event_list.append(branch)
+                last_branch = branch
             elif 'k' == line[0]:
                 # Encountered conflict
                 learned_clauses += 1
@@ -258,9 +267,22 @@ class TraceAnalyzer(object):
             else:
                 line = in_file.readline()
 
+        if last_branch is not None:
+            last_branch.implications = num_implications
+            num_implications = 0
+        useful_branches = 0
+        unuseful_branches = 0
+        useful_branch_implications = 0
+        unuseful_branch_implications = 0
         for event in event_list:
             if event.get_needed():
                 out_file.write(str(event))
+                if type(event) is Branch:
+                    useful_branches += 1
+                    useful_branch_implications += event.implications
+            elif type(event) is Branch:
+                unuseful_branches += 1
+                unuseful_branch_implications += event.implications
 
         print "%i out of %i original clauses useful. (%i%%)" % (
             useful_original_clauses, original_clauses,
@@ -268,7 +290,11 @@ class TraceAnalyzer(object):
         print "%i out of %i learned clauses useful. (%i%%)" % (
             useful_learned_clauses, learned_clauses,
             100*useful_learned_clauses/learned_clauses)
-
+        print "%i out of %i branches useful. (%i%%)" %(
+            useful_branches, useful_branches+unuseful_branches,
+            100*useful_branches/(useful_branches+unuseful_branches))
+        print "useful branches resulted in %i implications." % useful_branch_implications
+        print "unuseful branches resulted in %i implications." % unuseful_branch_implications
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('input_file',
