@@ -1007,7 +1007,7 @@ void Solver::relocAll(ClauseAllocator& to)
     for (int i = 0; i < learnts.size(); i++){
         CRef old_cr = learnts[i];
         ca.reloc(learnts[i], to);
-        if (output != NULL && learnts[i] != old_cr)
+        if (output != NULL)
             fprintf(output, "m %i %i\n", old_cr, learnts[i]);
     }
 
@@ -1016,7 +1016,7 @@ void Solver::relocAll(ClauseAllocator& to)
     for (int i = 0; i < clauses.size(); i++){
         CRef old_cr = clauses[i];
         ca.reloc(clauses[i], to);
-        if (output != NULL && clauses[i] != old_cr)
+        if (output != NULL)
             fprintf(output, "m %i %i\n", old_cr, clauses[i]);
     }
 }
