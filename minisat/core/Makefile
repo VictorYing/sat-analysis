@@ -12,7 +12,7 @@ clean: cleanoutput
 %-original.trace: d
 	-./minisat_debug -verb=0 $(word 2,$^) $@
 
-%.decisions: %-original.trace
+%.analysis: %-original.trace
 	./analyze_trace.py $< $@
 
 %-oracle.trace: %.decisions

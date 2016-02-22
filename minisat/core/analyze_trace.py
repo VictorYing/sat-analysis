@@ -4,16 +4,18 @@ import argparse, sys
 
 class Event(object):
     '''Base class for heuristic decisions.'''
+    def __init__(self):
+        self.is_needed = False
     def get_needed(self):
-        raise NotImplementedError
+        return self.is_needed
     def __str__(self):
         raise NotImplementedError
 
-class Assignment(object):
+class Assignment(Event):
     '''Base class for variable assignments'''
     def __init__(self, lit):
+        super(Assignment, self).__init__()
         self.lit = lit
-        self.is_needed = False
     def get_var(self):
         return abs(self.lit)
     def get_val(self):
@@ -24,13 +26,12 @@ class Assignment(object):
         self.is_needed = True
         if debug:
             print 'assignment %i is needed' % self.lit
-
-class Branch(Assignment, Event):
-    '''Assignment picked by decision heuristic.'''
-    def get_needed(self):
-        return self.is_needed
     def __str__(self):
         return "%i\n" % self.lit
+
+class Branch(Assignment):
+    '''Assignment picked by decision heuristic.'''
+    pass
 
 class Implication(Assignment):
     '''Implied assignment derived from unit propgation.'''
@@ -53,11 +54,11 @@ class Implication(Assignment):
         for assn in self.needed_assignments:
             assn.needed(debug)
 
-class Clause(object):
+class Clause(Event):
     '''Base class for clauses.'''
     def __init__(self, lits):
+        super(Clause, self).__init__()
         self.lits = lits
-        self.is_needed = False
     def needed(self, debug):
         if self.is_needed:
             return
@@ -71,6 +72,8 @@ class Clause(object):
         return self.lits
     def __iter__(self):
         return self.lits.__iter__()
+    def __str__(self):
+        return ' '.join(str(lit) for lit in self.lits) + ' 0\n'
 
 class OriginalClause(Clause):
     '''Clause that was part of the instance.'''
@@ -94,22 +97,24 @@ class LearnedClause(Clause):
 
 class Reset(Event):
     '''A solver reset'''
-    def get_needed(self):
-        return True
+    def __init__(self):
+        super(Reset, self).__init__()
+        self.is_needed = True
     def __str__(self):
         return 'r\n'
 
 class Deletion(Event):
     '''The deletion of a clause.'''
     def __init__(self, lits):
+        super(Deletion, self).__init__()
+        self.is_needed = True
         self.lits = lits
-    def get_needed(self):
-        return True
     def __str__(self):
         return 'd ' + ' '.join(str(lit) for lit in self.lits) + ' 0\n'
 
 class TraceAnalyzer(object):
     def __init__(self, debug):
+        self.event_list = []
         self.clauses = {}
         self.assignments = {}
         self.trail = []
@@ -128,12 +133,14 @@ class TraceAnalyzer(object):
             assert False
         self.assignments[assn.get_var()] = assn
         self.trail.append(assn)
+        self.event_list.append(assn)
 
     def _add_clause(self, clause, cref=''):
         if cref:
             cref = int(cref)
             assert cref not in self.clauses
             self.clauses[int(cref)] = clause
+        self.event_list.append(clause)
 
     def _decision_level(self):
         return len(self.trail_lim)
@@ -179,7 +186,6 @@ class TraceAnalyzer(object):
         self._add_assignment(assn)
 
     def analyze(self, in_file, out_file):
-        event_list = []
 
         line = in_file.readline()
         while ':' in line or 'i' == line[0]:
@@ -206,17 +212,11 @@ class TraceAnalyzer(object):
         while line:
             if 'i' == line[0]:
                 self._analyze_implication(line)
-                num_implications += 1
             elif 'b' == line[0]:
-                if last_branch is not None:
-                    last_branch.implications = num_implications
-                    num_implications = 0
                 # Picked branch
                 self._new_decision_level()
                 branch = Branch(int(line.split(' ')[-1]))
                 self._add_assignment(branch)
-                event_list.append(branch)
-                last_branch = branch
             elif 'k' == line[0]:
                 # Encountered conflict
                 _, cref, backtrack_level = line.split(' ')
@@ -226,11 +226,11 @@ class TraceAnalyzer(object):
                 cref = int(line.split(' ')[-1])
                 lits = self.clauses[cref].get_lits()
                 del self.clauses[cref]
-                event_list.append(Deletion(lits))
+                self.event_list.append(Deletion(lits))
             elif 'r' == line[0]:
                 if self._decision_level() > 0:
                     self._backtrack_to(0)
-                    event_list.append(Reset())
+                    self.event_list.append(Reset())
             elif 'm' == line[0]:
                 new_clauses = {}
                 while 'm' == line[0]:
@@ -251,22 +251,10 @@ class TraceAnalyzer(object):
             else:
                 line = in_file.readline()
 
-        if last_branch is not None:
-            last_branch.implications = num_implications
-            num_implications = 0
-        useful_branches = 0
-        unuseful_branches = 0
-        useful_branch_implications = 0
-        unuseful_branch_implications = 0
-        for event in event_list:
+        for event in self.event_list:
             if event.get_needed():
-                out_file.write(str(event))
-                if type(event) is Branch:
-                    useful_branches += 1
-                    useful_branch_implications += event.implications
-            elif type(event) is Branch:
-                unuseful_branches += 1
-                unuseful_branch_implications += event.implications
+                out_file.write('u')
+            out_file.write(str(event))
 
 def main():
     parser = argparse.ArgumentParser()
