@@ -9,21 +9,21 @@ cleanoutput:
 
 clean: cleanoutput
 
-%.trace: d
+%-original.trace: d
 	-./minisat_debug -verb=0 $(word 2,$^) $@
 
-%.decisions: %.trace
+%.decisions: %-original.trace
 	./analyze_trace.py $< $@
 
 %-oracle.trace: %.decisions
 	-./minisat_debug -verb=0 -decisions=$^ $@
 
-%-oracle-diff: %.trace %-oracle.trace
+%-oracle-diff: %-original.trace %-oracle.trace
 	-diff $^
 
-one.trace: ../../bench/simple/one.cnf
-two.trace: ../../bench/simple/two.cnf
-three.trace: ../../bench/simple/three.cnf
+one-original.trace: ../../bench/simple/one.cnf
+two-original.trace: ../../bench/simple/two.cnf
+three-original.trace: ../../bench/simple/three.cnf
 
 one-oracle.trace: ../../bench/simple/one.cnf
 two-oracle.trace: ../../bench/simple/two.cnf
