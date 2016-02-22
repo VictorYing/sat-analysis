@@ -2,9 +2,6 @@
 
 import argparse, sys
 
-useful_original_clauses = 0
-useful_learned_clauses = 0
-
 class Event(object):
     '''Base class for heuristic decisions.'''
     def get_needed(self):
@@ -77,12 +74,7 @@ class Clause(object):
 
 class OriginalClause(Clause):
     '''Clause that was part of the instance.'''
-    def needed(self, debug):
-        if self.is_needed:
-            return
-        super(OriginalClause, self).needed(debug)
-        global useful_original_clauses
-        useful_original_clauses += 1
+    pass
 
 class LearnedClause(Clause):
     '''Clause derived during conflict analysis.'''
@@ -99,8 +91,6 @@ class LearnedClause(Clause):
         self.antecedent.needed(debug)
         for assn in self.needed_assignments:
             assn.needed(debug)
-        global useful_learned_clauses
-        useful_learned_clauses += 1
 
 class Reset(Event):
     '''A solver reset'''
@@ -192,10 +182,8 @@ class TraceAnalyzer(object):
         event_list = []
 
         line = in_file.readline()
-        original_clauses = 0
         while ':' in line or 'i' == line[0]:
             if ':' in line:
-                original_clauses += 1
                 cref, lits = line.split(': ')
                 lits = [int(l) for l in lits.split(' ')[:-1]]
                 self._add_clause(OriginalClause(lits), cref)
@@ -214,10 +202,7 @@ class TraceAnalyzer(object):
             del self.clauses[cref]
             line = in_file.readline()
 
-        learned_clauses = 0
         no_new_line = False
-        last_branch = None
-        num_implications = 0
         while line:
             if 'i' == line[0]:
                 self._analyze_implication(line)
@@ -234,7 +219,6 @@ class TraceAnalyzer(object):
                 last_branch = branch
             elif 'k' == line[0]:
                 # Encountered conflict
-                learned_clauses += 1
                 _, cref, backtrack_level = line.split(' ')
                 if self._analyze_conflict(in_file, cref, backtrack_level):
                     break
@@ -284,17 +268,6 @@ class TraceAnalyzer(object):
                 unuseful_branches += 1
                 unuseful_branch_implications += event.implications
 
-        print "%i out of %i original clauses useful. (%i%%)" % (
-            useful_original_clauses, original_clauses,
-            100*useful_original_clauses/original_clauses)
-        print "%i out of %i learned clauses useful. (%i%%)" % (
-            useful_learned_clauses, learned_clauses,
-            100*useful_learned_clauses/learned_clauses)
-        print "%i out of %i branches useful. (%i%%)" %(
-            useful_branches, useful_branches+unuseful_branches,
-            100*useful_branches/(useful_branches+unuseful_branches))
-        print "useful branches resulted in %i implications." % useful_branch_implications
-        print "unuseful branches resulted in %i implications." % unuseful_branch_implications
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('input_file',
