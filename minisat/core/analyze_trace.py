@@ -162,6 +162,7 @@ class TraceAnalyzer(object):
 
         if -1 == backtrack_level:
             clause = LearnedClause([], conflicting_clause, self.assignments)
+            self._add_clause(clause)
             clause.needed(self.debug)
             return True
 
