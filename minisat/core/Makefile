@@ -31,6 +31,6 @@ three-oracle.trace: ../../bench/simple/three.cnf
 
 run-simple: one.trace two.trace three.trace
 
-analyze-simple: one.decisions two.decisions three.decisions
+analyze-simple: one.analysis two.analysis three.analysis
 
 feedback-simple: one-oracle-diff two-oracle-diff three-oracle-diff
