@@ -547,7 +547,7 @@ void analyze(istream& in, ostream& out) {
 
   for (vector<Event*>::iterator it = event_list.begin(); it != event_list.end(); ++it) {
     if ((*it)->is_skippable()) {
-      out << "- ";
+      out << "~ ";
     }
     if ((*it)->is_required()) {
       out << "! ";
