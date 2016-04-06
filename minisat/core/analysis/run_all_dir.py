@@ -12,8 +12,15 @@ sat_instances = set()
 if os.path.exists(sys.argv[3]):
     with open(sys.argv[3], 'r') as f:
         for line in f:
-            sat_instances.add(line)
+            sat_instances.add(line.strip())
 sat_instances_file = open(sys.argv[3], 'a')
+
+solved_instances = set()
+if os.path.exists(sys.argv[4]):
+    with open(sys.argv[4], 'r') as f:
+        for line in f:
+            solved_instances.add(line.strip())
+solved_instances_file = open(sys.argv[4], 'a')
 
 for dirpath, dirs, files in os.walk(input_dir):
     for filename in files:
@@ -32,6 +39,10 @@ for dirpath, dirs, files in os.walk(input_dir):
             print instance + ' Was already SAT.'
             continue
 
+        if instance in solved_instances:
+            print instance + ' was already solved.'
+            continue
+
         print instance
 
         output_subdir = os.path.join(output_dir, relpath)
@@ -43,7 +54,7 @@ for dirpath, dirs, files in os.walk(input_dir):
                 prev_file.seek(-6, os.SEEK_END)
                 line = prev_file.readline()
             if line.rstrip() == 'UNSAT':
-                print 'already solved'
+                print 'WARNING! already solved. Skipping...'
                 continue
             else:
                 print 'WARNING! overwriting previous trace file.'
@@ -54,7 +65,7 @@ for dirpath, dirs, files in os.walk(input_dir):
         with open(log_filepath, 'w') as g:
             code = subprocess.call(['../minisat_static',
                                     '-verb=2',
-                                    '-cpu-lim=300',
+                                    '-cpu-lim=1800',
                                     instance_filepath,
                                     output_filepath],
                                    stdout=g)
@@ -62,6 +73,8 @@ for dirpath, dirs, files in os.walk(input_dir):
         if 10 == code:
             print 'run returned SAT!'
             sat_instances_file.write(instance + '\n')
+        if 20 == code:
+            solved_instances_file.write(instance + '\n')
         if 20 != code:
             print 'run did not return UNSAT'
             os.remove(os.path.join(output_dir, instance + '.trace'))
