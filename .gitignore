@@ -29,11 +29,14 @@
 *.out
 *.app
 
+# Dependencies file
+depend.mk
+
 # Execution trace and analysis output
 *.trace
-*.decisions
 *.log
 *.analysis
+*.count
 
 # Tags
 tags
