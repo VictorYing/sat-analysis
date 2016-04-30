@@ -22,6 +22,11 @@ for dirpath, dirs, files in os.walk(start_dir):
 
         trace_size = os.path.getsize(trace_filepath)
         print 'trace size is %d' % trace_size
+        if trace_size == 0:
+            print 'WARNING!! empty trace file?'
+            print 'deleting empty trace file...'
+            os.remove(trace_filepath)
+            continue 
         if trace_size > 4 * 2**30:
             print 'too large, skipping.'
             continue
@@ -43,8 +48,15 @@ for dirpath, dirs, files in os.walk(start_dir):
             print 'WARNING! overwriting previous analysis file.'
 
         start = time.time()
-        code = subprocess.check_call(['./analyze_static',
-                                     trace_filepath,
-                                     analysis_filepath])
-        print 'analysis took %f seconds' % (time.time() - start)
+        try:
+            code = subprocess.check_call(['./analyze_static',
+                                          trace_filepath,
+                                          analysis_filepath])
+        except:
+            print 'Analysis failed!'
+            if os.path.getsize(analysis_filepath) == 0:
+                print 'deleting empty analysis file...'
+                os.remove(analysis_filepath)
+        finally:
+            print 'analysis took %f seconds' % (time.time() - start)
 
