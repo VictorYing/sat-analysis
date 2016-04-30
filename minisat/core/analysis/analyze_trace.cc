@@ -30,8 +30,11 @@ class Event {
   public:
     Event(bool init_required) : required(init_required) { }
     bool is_required() { return required; }
-    virtual bool is_skippable() = 0;
+    virtual bool is_skippable() { return false; }
+    void set_required() { if (!required) { required = true; handle_required(); } }
     virtual void print(ostream& out) = 0;
+  private:
+    virtual void handle_required() { }
 };
 
 class Assignment : public Event {
@@ -42,10 +45,7 @@ class Assignment : public Event {
     Assignment(istream& in) ;
     Lit get_lit() { return lit; }
     unsigned get_var() { return var(lit); }
-    void set_required() { if (!required) { required = true; handle_required(); } }
     bool get_sign() { return sign(lit); }
-  private:
-    virtual void handle_required() = 0;
 };
 
 class ClauseAddition : public Event {
@@ -57,10 +57,7 @@ class ClauseAddition : public Event {
     ClauseAddition(istream& in) ;
     vector<Lit>& get_lits() { return lits; }
     void set_deleted() ;
-    void set_required() { if (!required) { required = true; handle_required(); } }
     virtual void print(ostream& out) ;  // override
-  private:
-    virtual void handle_required() = 0;
 };
 
 
@@ -73,8 +70,6 @@ class Branch : public Assignment {
     Branch(istream& in) : Assignment(in) { }
     bool is_skippable() { return !required; } // override
     void print(ostream& out) ;  // override
-  private:
-    void handle_required() ;  // override
 };
 
 class Implication : public Assignment {
@@ -93,9 +88,6 @@ class Implication : public Assignment {
 class OriginalClause : public ClauseAddition {
   public:
     OriginalClause(istream& in) : ClauseAddition(in) { }
-    bool is_skippable() { return false; } // override
-  private:
-    void handle_required() ;  // override
 };
 
 class LearnedClause : public ClauseAddition {
@@ -114,7 +106,6 @@ class LearnedClause : public ClauseAddition {
 class Reset : public Event {
   public:
     Reset() : Event(true) { }
-    bool is_skippable() { return false; }  // override
     void print(ostream& out) { out << "r\n"; }  // override
 };
 
@@ -123,8 +114,16 @@ class Deletion : public Event {
     ClauseAddition* clause;
   public:
     Deletion(istream& in) ;
-    bool is_skippable() { return false; }  // override
     void print(ostream& out) { out << "d "; clause->print(out); }  // override
+};
+
+class AssignmentComplete : public Event {
+  protected:
+    Assignment** final_assignments;  // null-terminated array
+  public:
+    AssignmentComplete() ;
+    void print(ostream& out) ;  // override
+    void handle_required() ;  // override
 };
 
 
@@ -199,13 +198,6 @@ void Branch::print(ostream& out) {
   out << "b ";
   print_lit(out, lit);
   out << "\n";
-}
-
-void Branch::handle_required() {
-#ifdef DEBUG_EXTRA
-  cout << "Branch required: ";
-  print(cout);
-#endif
 }
 
 
@@ -286,14 +278,6 @@ void Implication::print(ostream& out) {
 }
 
 
-void OriginalClause::handle_required() {
-#ifdef DEBUG_EXTRA
-  cout << "OriginalClause required: ";
-  print(cout);
-#endif
-}
-
-
 LearnedClause::LearnedClause(istream& in, ClauseAddition& conflicting_clause) : ClauseAddition(in), antecedent(conflicting_clause), skippable(UNKNOWN) {
   vector<Lit>& lits = antecedent.get_lits();
   required_assignments = new Assignment*[lits.size() + 1];
@@ -358,6 +342,34 @@ bool LearnedClause::is_skippable() {
   return (skippable == SKIP);
 }
 
+
+AssignmentComplete::AssignmentComplete() : Event(false) {
+  unsigned i, highest_var = assignments.size() - 1;
+  final_assignments = new Assignment*[highest_var + 1]; 
+  for (i = 1; i <= highest_var; i++) {
+    assert(assignments[i] != 0);
+    final_assignments[i-1] = assignments[i];
+  }
+  final_assignments[highest_var] = 0;
+}
+
+void AssignmentComplete::handle_required() {
+  for (Assignment** required_assignment = final_assignments;
+       *required_assignment != 0;
+       required_assignment++) {
+    (*required_assignment)->set_required();
+  }
+}
+
+void AssignmentComplete::print(ostream& out) {
+  out << "SAT" << endl;
+  for (Assignment** a = final_assignments; *a != 0; a++) {
+    (*a)->print(out);
+  }
+  out << "SAT" << endl;
+}
+
+
 void add_assignment(Assignment& assignment) {
   unsigned v = assignment.get_var();
   if (v < assignments.size()) {
@@ -369,7 +381,7 @@ void add_assignment(Assignment& assignment) {
   trail.push_back(&assignment);
   event_list.push_back(&assignment);
 #ifdef DEBUG_EXTRA
-  cout << "new assignment: ";
+  cout << "NEW assignment: ";
   print_lit(cout, assignment.get_lit());
   cout << endl;
 #endif
@@ -484,8 +496,8 @@ void analyze(istream& in, ostream& out) {
 
   cout << "Parsing..." << endl;
 
-  ClauseAddition* empty_clause = 0;
-  while (empty_clause == 0) {
+  Event* final_event = 0;
+  while (final_event == 0) {
     in >> ws;
     if ('0' <= in.peek() && in.peek() <= '9') {
       unsigned clause_id;
@@ -503,7 +515,7 @@ void analyze(istream& in, ostream& out) {
         add_clause(*clause);
         unsigned clause_size = clause->get_lits().size();
         if (clause_size == 0u) {
-          empty_clause = clause;
+          final_event = clause;
         } else {
           assert(clause_size == 1u);
           add_assignment(*new Implication(clause->get_lits()[0], clause));
@@ -517,7 +529,7 @@ void analyze(istream& in, ostream& out) {
         add_assignment(*new Branch(in));
         break;
       case 'k':
-        empty_clause = analyze_conflict(in);
+        final_event = analyze_conflict(in);
         break;
       case 'r':
         backtrack_to(0);
@@ -532,16 +544,25 @@ void analyze(istream& in, ostream& out) {
         cerr << "End of file without finding empty clause?" << endl;
         exit(EXIT_FAILURE);
         break;
+      case 'S':
+        final_event = new AssignmentComplete();
+        event_list.push_back(final_event);
+        break;
+      case 'U':
+        cerr << "Early UNSAT?! Aborting..." << endl;
+        exit(EXIT_FAILURE);
+        break;
       default:
         cerr << "Parse error! " << c << endl;
         exit(EXIT_FAILURE);
+        break;
       }
     }
   }
 
   cout << "Analyzing..." << endl;
 
-  empty_clause->set_required();
+  final_event->set_required();
 
   cout << "Writing out analysis..." << endl;
 

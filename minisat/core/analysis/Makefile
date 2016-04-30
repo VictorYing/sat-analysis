@@ -3,7 +3,9 @@ DEPDIR    = mtl utils
 
 include $(MROOT)/mtl/template.mk
 
-BENCHDIR = ../../../bench
+BENCHDIR = ../../../bench/simple
+
+BENCHMARKS = one two three contradict easy-sat imply-sat sparse-sat 
 
 cleanoutput:
 	rm *.trace
@@ -12,7 +14,7 @@ cleanoutput:
 
 clean: cleanoutput
 
-%-original.trace: d
+%-original.trace: d $(BENCHDIR)/%.cnf
 	-../minisat_debug -verb=0 $(word 2,$^) $@
 
 %.analysis: %-original.trace
@@ -26,18 +28,10 @@ clean: cleanoutput
 %-oracle-diff: %-original.trace %-oracle.trace
 	-diff $^
 
-one-original.trace: $(BENCHDIR)/simple/one.cnf
-two-original.trace: $(BENCHDIR)/simple/two.cnf
-three-original.trace: $(BENCHDIR)/simple/three.cnf
 
-one-oracle.trace: $(BENCHDIR)/simple/one.cnf/simple/three.cnf
 
-one-oracle.trace: $(BENCHDIR)/simple/one.cnf
-two-oracle.trace: $(BENCHDIR)/simple/two.cnf
-three-oracle.trace: $(BENCHDIR)/simple/three.cnf
+run-simple: $(addsuffix -original.trace, $(BENCHMARKS)) 
 
-run-simple: one.trace two.trace three.trace
+analyze-simple: $(addsuffix .analysis, $(BENCHMARKS))
 
-analyze-simple: one.analysis two.analysis three.analysis
-
-feedback-simple: one-oracle-diff two-oracle-diff three-oracle-diff
+feedback-simple: $(addsuffix .oracle-diff, $(BENCHMARKS))

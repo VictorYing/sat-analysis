@@ -26,11 +26,13 @@ for dirpath, dirs, files in os.walk(start_dir):
             continue
 
         with open(analysis_filepath, 'r') as prev_file:
-            prev_file.seek(-4, os.SEEK_END)
-            line = prev_file.readline()
-        if line.rstrip() == '! 0':
+            prev_file.seek(-5, os.SEEK_END)
+            ending = prev_file.read(6).strip().split()[-1]
+        if ending == '0':
             print 'Analysis confirmed UNSAT'
-            continue
+        elif ending == 'SAT':
+            print 'Analysis confirmedSAT'
         else:
+            print 'analysis ended in: ' + ending
             raise Exception()
         

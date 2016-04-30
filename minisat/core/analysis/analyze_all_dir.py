@@ -30,9 +30,11 @@ for dirpath, dirs, files in os.walk(start_dir):
             prev_file.seek(-6, os.SEEK_END)
             line = prev_file.readline()
         if line.rstrip() == 'UNSAT':
-            print 'was solved. Analyzing...'
+            print 'was UNSAT.'
+        elif line.strip().split()[-1] == '0':
+            print 'was SAT.'
         else:
-            print 'not solved.'
+            print 'not solved. Skipping...'
             continue
         
         if os.path.exists(analysis_filepath):
