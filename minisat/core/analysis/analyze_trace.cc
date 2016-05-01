@@ -425,7 +425,7 @@ void backtrack_to(unsigned level) {
   trail_lim.resize(level);
 }
 
-LearnedClause* analyze_conflict(istream& in) {
+LearnedClause* parse_conflict(istream& in) {
   int conflicting_id, backtrack_level;
   in >> conflicting_id >> backtrack_level;
 
@@ -462,7 +462,7 @@ LearnedClause* analyze_conflict(istream& in) {
   return 0;
 }
 
-void analyze_implication(istream& in) {
+void parse_implication(istream& in) {
   Lit lit = read_lit(in);
   int antecedent_id;
   in >> antecedent_id;
@@ -473,7 +473,7 @@ void analyze_implication(istream& in) {
   add_assignment(*implication);
 }
 
-void analyze_clause_movement(istream& in) {
+void parse_clause_movement(istream& in) {
   vector<ClauseAddition*> new_clauses;
   new_clauses.reserve(clauses.size() / 4u);
   while (true) {
@@ -492,9 +492,7 @@ void analyze_clause_movement(istream& in) {
   clauses.swap(new_clauses);
 }
 
-void analyze(istream& in, ostream& out) {
-
-  cout << "Parsing..." << endl;
+Event& parse(istream& in) {
 
   Event* final_event = 0;
   while (final_event == 0) {
@@ -522,14 +520,14 @@ void analyze(istream& in, ostream& out) {
         }
       } break;
       case 'i':
-        analyze_implication(in);
+        parse_implication(in);
         break;
       case 'b':
         new_decision_level();
         add_assignment(*new Branch(in));
         break;
       case 'k':
-        final_event = analyze_conflict(in);
+        final_event = parse_conflict(in);
         break;
       case 'r':
         backtrack_to(0);
@@ -538,7 +536,7 @@ void analyze(istream& in, ostream& out) {
         event_list.push_back(new Deletion(in));
         break;
       case 'm':
-        analyze_clause_movement(in);
+        parse_clause_movement(in);
         break;
       case '\a':
         cerr << "End of file without finding empty clause?" << endl;
@@ -559,34 +557,36 @@ void analyze(istream& in, ostream& out) {
       }
     }
   }
+  return *final_event;
+}
 
-  cout << "Analyzing..." << endl;
+int main(int argc, char* argv[]) {
+  if (argc <= 2) {
+    cerr << "usage: " << argv[0] << " INPUT_FILE OUTPUT_FILE" << endl;
+    exit(EXIT_FAILURE);
+  }
 
-  final_event->set_required();
+  cout << "Parsing..." << endl;
+
+  ifstream in(argv[1]);
+  Event &final_event = parse(in);
+
+  cout << "Traversing dependencies..." << endl;
+
+  final_event.set_required();
 
   cout << "Writing out analysis..." << endl;
 
+  ofstream out(argv[2]);
   for (vector<Event*>::iterator it = event_list.begin(); it != event_list.end(); ++it) {
     if ((*it)->is_skippable()) {
       out << "~ ";
     }
-    if ((*it)->is_required()) {
+    else if ((*it)->is_required()) {
       out << "! ";
     }
     (*it)->print(out);
   }
 
   cout << "Done." << endl;
-}
-
-int main(int argc, char* argv[]) {
-  if (argc < 2) {
-    cerr << "Need to specify input and output filenames" << endl;
-    exit(EXIT_FAILURE);
-  }
-
-  ifstream in(argv[1]);
-  ofstream out(argv[2]);
-
-  analyze(in, out);
 }
