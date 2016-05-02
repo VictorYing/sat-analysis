@@ -236,72 +236,10 @@ void Solver::cancelUntil(int level) {
 //=================================================================================================
 // Major methods:
 
-void Solver::findAndDeleteClause(vec<Lit>& c){
-    watches.cleanAll();
-    int i, j, k;
-    for (i = 0; i < c.size()-1; i++){
-        vec<Watcher>& ws = watches[~c[i]];
-        for (Watcher *w = (Watcher*)ws, *end = w + ws.size();  w != end; w++){
-            CRef cr = w->cref;
-            Clause& clause= ca[cr];
-
-            // Check whether clause contained in c
-            for (j = 0; j < clause.size(); j++){
-                for (k = 0; k < c.size(); k++){
-                    if (clause[j] == c[k])
-                        break;
-                }
-                if (k == c.size())
-                    goto NextClause;
-            }
-
-            // Check whether c contained in clause
-            for (j = 0; j < c.size(); j++){
-                for (k = 0; k < clause.size(); k++){
-                    if (c[j] == clause[k])
-                        break;
-                }
-                if (k == clause.size())
-                    goto NextClause;
-            }
-
-            removeClause(cr);
-            return;
-
-            NextClause:;
-        }
-    }
-    assert(0);
-}
 
 Lit Solver::pickBranchLit()
 {
     Var next = var_Undef;
-
-    if (decision_oracle != NULL) {
-        int lit;
-        char c = '\0';
-        vec<Lit> clause;
-        while (fscanf(decision_oracle, "%d", &lit) == 0){
-            int x = fscanf(decision_oracle, " %c", &c);
-            assert(x == 1);
-            if (c == 'r'){
-                if (output != NULL)
-                    fprintf(output, "r\n");
-                cancelUntil(0);
-            }else if (c == 'd'){
-                clause.clear();
-                while (fscanf(decision_oracle, "%d", &lit) == 1 &&
-                       lit != 0)
-                    clause.push(mkLit(abs(lit)-1, lit<0));
-                findAndDeleteClause(clause);
-            }else
-                assert(false);
-        }
-        if (output != NULL)
-            fprintf(output, "b %i\n", lit);
-        return mkLit(abs(lit)-1, lit < 0);
-    }
 
     // Random decision:
     if (drand(random_seed) < random_var_freq && !order_heap.empty()){
@@ -759,22 +697,18 @@ lbool Solver::search(int nof_conflicts)
             if (nof_conflicts >= 0 && conflictC >= nof_conflicts || !withinBudget()){
                 // Reached bound on number of conflicts:
                 progress_estimate = progressEstimate();
-                if (decision_oracle == NULL){
-                    if (output != NULL)
-                        fprintf(output, "r\n");
-                    cancelUntil(0);
-                    return l_Undef;
-            } }
+                if (output != NULL)
+                    fprintf(output, "r\n");
+                cancelUntil(0);
+                return l_Undef; }
 
-            if (decision_oracle == NULL){
-                // Simplify the set of problem clauses:
-                if (decisionLevel() == 0 && !simplify())
-                    return l_False;
+            // Simplify the set of problem clauses:
+            if (decisionLevel() == 0 && !simplify())
+                return l_False;
 
-                if (learnts.size()-nAssigns() >= max_learnts)
-                    // Reduce the set of learnt clauses:
-                    reduceDB();
-            }
+            if (learnts.size()-nAssigns() >= max_learnts)
+                // Reduce the set of learnt clauses:
+                reduceDB();
 
             Lit next = lit_Undef;
             while (decisionLevel() < assumptions.size()){
