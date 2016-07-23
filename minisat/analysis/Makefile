@@ -3,7 +3,7 @@ DEPDIR    = mtl utils
 
 include $(MROOT)/mtl/template.mk
 
-BENCHDIR = ../../../bench/simple
+BENCHDIR = ../../bench/simple
 
 BENCHMARKS = one two three contradict easy-sat imply-sat sparse-sat 
 
@@ -13,10 +13,10 @@ cleanoutput:
 
 clean: cleanoutput
 
-%.trace: d $(BENCHDIR)/%.cnf
-	-../minisat_debug -verb=0 $(word 2,$^) $@
+%.trace: $(BENCHDIR)/%.cnf
+	-../core/minisat_debug -verb=0 $< $@
 
-%.analysis: %.trace
+%.analysis: %.trace d
 	./analyze_debug $< $@
 
 run-simple: $(addsuffix .trace, $(BENCHMARKS))
