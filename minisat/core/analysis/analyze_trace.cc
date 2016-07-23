@@ -570,6 +570,7 @@ int main(int argc, char* argv[]) {
 
   ifstream in(argv[1]);
   Event &final_event = parse(in);
+  in.close();
 
   cout << "Traversing dependencies..." << endl;
 
@@ -587,6 +588,7 @@ int main(int argc, char* argv[]) {
     }
     (*it)->print(out);
   }
+  out.close();
 
   cout << "Done." << endl;
 }
