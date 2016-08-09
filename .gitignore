@@ -35,8 +35,7 @@ depend.mk
 # Execution trace and analysis output
 *.trace
 *.log
-*.analysis
-*.count
+*.csv
 
 # Tags
 tags

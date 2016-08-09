@@ -9,16 +9,16 @@ BENCHMARKS = one two three contradict easy-sat imply-sat sparse-sat
 
 cleanoutput:
 	rm *.trace
-	rm *.analysis
+	rm *.csv
 
 clean: cleanoutput
 
 %.trace: $(BENCHDIR)/%.cnf
 	-../core/minisat_debug -verb=0 $< $@
 
-%.analysis: %.trace d
+%.csv: %.trace d
 	./analyze_debug $< $@
 
 run-simple: $(addsuffix .trace, $(BENCHMARKS))
 
-analyze-simple: $(addsuffix .analysis, $(BENCHMARKS))
+analyze-simple: $(addsuffix .csv, $(BENCHMARKS))

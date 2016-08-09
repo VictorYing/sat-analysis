@@ -561,6 +561,16 @@ Event& parse(istream& in) {
 }
 
 int main(int argc, char* argv[]) {
+  int events = 0;
+  int required = 0;
+  int skippable = 0;
+  int branches = 0;
+  int req_branches = 0;
+  int skip_branches = 0;
+  int props = 0;
+  int req_props = 0;
+  int skip_props = 0;
+
   if (argc <= 2) {
     cerr << "usage: " << argv[0] << " INPUT_FILE OUTPUT_FILE" << endl;
     exit(EXIT_FAILURE);
@@ -574,20 +584,69 @@ int main(int argc, char* argv[]) {
 
   cout << "Traversing dependencies..." << endl;
 
+  // Recursively find all critical work.
   final_event.set_required();
+
+  // Now we look through all events to collect statistics.
+  for (vector<Event*>::iterator it = event_list.begin(); it != event_list.end(); ++it) {
+    ++events;
+    if ((*it)->is_required()) {
+      ++required;
+      if (NULL != dynamic_cast<Branch*>(*it)) {
+        ++req_branches;
+        ++branches;
+      }
+      else if (NULL != dynamic_cast<Implication*>(*it)) {
+        ++req_props;
+        ++props;
+      }
+    }
+    else if ((*it)->is_skippable()) {
+      ++skippable;
+      if (NULL != dynamic_cast<Branch*>(*it)) {
+        ++skip_branches;
+        ++branches;
+      }
+      else if (NULL != dynamic_cast<Implication*>(*it)) {
+        ++skip_props;
+        ++props;
+      }
+    }
+    else {
+      if (NULL != dynamic_cast<Branch*>(*it)) ++branches;
+      else if (NULL != dynamic_cast<Implication*>(*it)) ++props;
+    }
+  }
 
   cout << "Writing out analysis..." << endl;
 
   ofstream out(argv[2]);
-  for (vector<Event*>::iterator it = event_list.begin(); it != event_list.end(); ++it) {
-    if ((*it)->is_skippable()) {
-      out << "~ ";
+
+  if (0) {
+    // Print out entire annotated trace
+    for (vector<Event*>::iterator it = event_list.begin(); it != event_list.end(); ++it) {
+      if ((*it)->is_skippable()) {
+        out << "~ ";
+      }
+      else if ((*it)->is_required()) {
+        out << "! ";
+      }
+      (*it)->print(out);
     }
-    else if ((*it)->is_required()) {
-      out << "! ";
-    }
-    (*it)->print(out);
   }
+
+  // Print out statistics
+  out << argv[1] << ',';
+  out << events << ',';
+  out << required << ',';
+  out << skippable << ',';
+  out << branches << ',';
+  out << req_branches << ',';
+  out << skip_branches << ',';
+  out << props << ',';
+  out << req_props << ',';
+  out << skip_props << endl;
+
   out.close();
 
   cout << "Done." << endl;
