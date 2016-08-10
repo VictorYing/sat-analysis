@@ -7,6 +7,12 @@ BENCHDIR = ../../bench/simple
 
 BENCHMARKS = one two three contradict easy-sat imply-sat sparse-sat 
 
+ifneq ("$(wildcard ../core/minisat_debug)","")
+SOLVER = ../core/minisat_debug
+else
+SOLVER = ../core/minisat_static
+endif
+
 cleanoutput:
 	rm *.trace
 	rm *.csv
@@ -14,7 +20,7 @@ cleanoutput:
 clean: cleanoutput
 
 %.trace: $(BENCHDIR)/%.cnf
-	-../core/minisat_debug -verb=0 $< $@
+	-$(SOLVER) -verb=0 $< $@
 
 %.csv: %.trace d
 	./analyze_debug $< $@
