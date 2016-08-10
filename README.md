@@ -77,6 +77,9 @@ The resulting executable very simply takes the input trace file as its first arg
 The output file will contain a single line with numbers separated by commas.
 It is intended that these output files can be concatenated to produce a single
 CSV file with data from the analysis of many instances.
+The columns are the trace filepath, number of events, critical events,
+skippable events, branches, critical branches, skippable branches,
+implications, critical implications, and skippable implications.
 
 You can also use the build target `run-simple` to generate all the trace files
 associated with running MiniSat on all the benchmarks in `bench/simple/`,
