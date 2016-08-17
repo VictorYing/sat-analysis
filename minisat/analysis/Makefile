@@ -14,10 +14,10 @@ SOLVER = ../core/minisat_static
 endif
 
 cleanoutput:
-	rm *.trace
-	rm *.csv
+	-rm *.trace
+	-rm *.csv
 
-clean: cleanoutput
+clean-all: clean cleanoutput
 
 %.trace: $(BENCHDIR)/%.cnf
 	-$(SOLVER) -verb=0 $< $@
