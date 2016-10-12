@@ -7,7 +7,8 @@ There are presently two main directories
 
 * `minisat/` contains the modified version of MiniSat 2.2.0 and associated tools.
   Note that this was based off of the version from http://minisat.se/downloads/minisat-2.2.0.tar.gz
-  from the MiniSat website, and not the version on GitHub at http://minisat.se/downloads/minisat-2.2.0.tar.gz which has a few more minor changes.
+  on the MiniSat website, which is approximately what competed in Sat-RACE 2010.
+  Some more changes have been made to the version hosted on GitHub at https://github.com/niklasso/minisat
 
 * `bench/` contains some very simple DIMACS-format CNF instances for testing
 
